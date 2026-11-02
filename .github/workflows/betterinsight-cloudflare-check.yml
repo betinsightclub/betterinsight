@@ -31,6 +31,12 @@ jobs:
           cache: npm
       - name: Install project dependencies
         run: npm ci --no-audit --no-fund
+      - name: Audit old authentication and campus restrictions (filenames only)
+        shell: bash
+        run: |
+          echo "Files referencing incompatible/legacy auth or campus restrictions:"
+          git grep -l -E 'next-auth|@auth/core|isAllowedUtAustinEmail|UT_AUSTIN|__dirname|__filename' -- ':!package-lock.json' ':!package.json' ':!.github/workflows/*' || true
+          echo "This audit does NOT modify authentication."
       - name: Cloudflare vinext compatibility report
         run: npx --yes vinext@latest check
 
