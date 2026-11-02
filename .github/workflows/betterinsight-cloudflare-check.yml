@@ -1,0 +1,37 @@
+name: BetterInsight Cloudflare compatibility (no deployment)
+
+on:
+  push:
+    branches:
+      - dev/betterinsight-cloudflare
+    paths:
+      - ".github/workflows/betterinsight-cloudflare-check.yml"
+      - "package.json"
+      - "package-lock.json"
+      - "app/**"
+      - "components/**"
+      - "next.config.mjs"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compatibility:
+    name: Check Next.js app against vinext
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Check out development branch
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install project dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Cloudflare vinext compatibility report
+        run: npx --yes vinext@latest check
+
+# Intentionally no deploy command, no Cloudflare credentials, and no production writes.
