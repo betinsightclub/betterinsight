@@ -1,0 +1,52 @@
+name: BetterInsight vinext build trial (NO deployment)
+
+on:
+  push:
+    branches:
+      - dev/betterinsight-cloudflare
+    paths:
+      - ".github/workflows/betterinsight-vinext-build.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  trial-build:
+    name: Initialize and build for Cloudflare without deploying
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      CI: "true"
+      NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co"
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "TEST-ONLY-NO-LIVE-DATABASE"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Generate vinext Cloudflare configuration in temporary CI checkout
+        run: timeout 180s npx --yes vinext@latest init --platform=cloudflare --skip-check
+      - name: Show proposed configuration changes (no secrets)
+        run: |
+          git status --short
+          git diff --stat
+          node -e "const p=require('./package.json');console.log('vinext scripts:',Object.fromEntries(Object.entries(p.scripts).filter(([k])=>k.includes('vinext'))))"
+      - name: Test Cloudflare-oriented production build
+        run: timeout 360s npm run build:vinext
+      - name: Store generated configuration for review, not deployment
+        uses: actions/upload-artifact@v4
+        with:
+          name: betterinsight-vinext-config
+          path: |
+            vite.config.ts
+            cloudflare.config.ts
+            package.json
+            package-lock.json
+          if-no-files-found: warn
+
+# Deliberately NO push, NO deployment, NO Cloudflare token, and no live Supabase keys.
