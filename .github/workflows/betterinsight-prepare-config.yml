@@ -1,0 +1,97 @@
+name: Prepare BetterInsight Cloudflare configuration (NO deployment)
+
+on:
+  push:
+    branches:
+      - dev/betterinsight-cloudflare
+    paths:
+      - ".github/workflows/betterinsight-prepare-config.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Check out only the BetterInsight development branch
+        uses: actions/checkout@v4
+        with:
+          ref: dev/betterinsight-cloudflare
+          persist-credentials: false
+      - name: Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install existing dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Generate vinext Cloudflare integration
+        run: timeout 180s npx --yes vinext@1.4.1 init --platform=cloudflare --skip-check
+      - name: Avoid image billing and keep the configuration minimal
+        shell: bash
+        run: |
+          cat > vite.config.ts <<'EOF'
+          import { defineConfig } from "vite";
+          import vinext from "vinext";
+          import { cloudflare } from "@cloudflare/vite-plugin";
+
+          // Image optimization is deliberately disabled for the free test.
+          // Seller uploads will use the isolated Supabase project later.
+          export default defineConfig({
+            plugins: [
+              vinext(),
+              cloudflare({
+                viteEnvironment: {
+                  name: "rsc",
+                  childEnvironments: ["ssr"],
+                },
+              }),
+            ],
+          });
+          EOF
+          cat > cloudflare.config.ts <<'EOF'
+          import { bindings, defineConfig, defineWorker } from "cf/config";
+
+          export default defineConfig({
+            worker: defineWorker({
+              name: "betterinsight",
+              entrypoint: "vinext/server/fetch-handler",
+              compatibilityDate: "2026-11-02",
+              compatibilityFlags: ["nodejs_compat"],
+              assets: {
+                htmlHandling: "none",
+                notFoundHandling: "none",
+                runWorkerFirst: ["/*", "!/_next/static/*", "!/*/_next/static/*"],
+              },
+              env: {
+                ASSETS: bindings.assets(),
+              },
+            }),
+          });
+          EOF
+      - name: Verify generated project builds without access to real accounts
+        env:
+          CI: "true"
+          NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co"
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: "TEST-ONLY-NO-LIVE-DATABASE"
+        run: timeout 360s npm run build:vinext
+      - name: Commit only generated configuration to development branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json vite.config.ts cloudflare.config.ts .gitignore
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo "No configuration changes to commit"
+          else
+            git commit -m "build: configure BetterInsight vinext for free Cloudflare Workers tests"
+            auth=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+            git -c "http.extraheader=AUTHORIZATION: basic $auth" push https://github.com/betinsightclub/betterinsight.git HEAD:dev/betterinsight-cloudflare
+          fi
+
+# NO Cloudflare deploy, no external paid APIs, no real Supabase keys.
