@@ -20,7 +20,7 @@ Existing six tables: `market_countries`, `market_categories`, `market_listings`,
 
 Create new timestamped migrations under **this directory only**: `infra/betterinsight/supabase/migrations/`. Review migrations before application.
 
-The `BetterInsight DB – manual check / apply` GitHub Action runs a read-only six-table/RLS connectivity check on code updates and by manual `check` dispatch. A manual `apply` requires an exact confirmation string and pending migrations in `infra/betterinsight/supabase/migrations`, then uses the project-scoped secret `BETTERINSIGHT_DATABASE_URL`. The older original root `/supabase/migrations` is never applied. The SQL in `docs/database/06_profile_rls_pending_review.sql` has NOT been applied or converted to a migration.
+The `BetterInsight DB – manual check / apply` GitHub Action runs a read-only six-table/RLS connectivity check on code updates and by manual `check` dispatch. A manual `apply` requires an exact confirmation string and pending migrations in `infra/betterinsight/supabase/migrations`, then uses the project-scoped secret `BETTERINSIGHT_DATABASE_URL`. The older original root `/supabase/migrations` is never applied. The SQL in `docs/database/06_profile_rls_pending_review.sql` has NOT been applied or converted to a migration. **Keep it staged until the identity model is reviewed**: current BetterInsight-dev profile IDs reference local `auth.users`, while real BetInsight membership uses its separate dashboard-access flow.
 
 Use the `Session pooler` Postgres URL from this project's **Connect** panel (port 5432), not the direct IPv6 endpoint or transaction-pooler URL. Put the full percent-encoded URL in the GitHub Actions repository secret. Never commit, paste into chat, or screenshot the URL/password.
 
@@ -37,3 +37,12 @@ The website and original UT-Marketplace auth/message code are **not connected** 
 - The original university marketplace `users`, `banned_emails`, onboarding, messaging, and listings code remains to be adapted; it must not be treated as working with our new schema yet.
 - Shared BetInsight login/SSO is **not implemented**. Different Supabase projects do not automatically share Auth sessions. Existing BetInsight users should not be instructed to register again until a secure federation/account linking strategy has been approved and tested.
 - Never enable public listing or messaging write policies before ownership, reporting, abuse limits and encryption are tested.
+
+
+## Country-first marketplace and handoff (2026-11-03)
+
+- `app/betterinsight/page.tsx`: development-only DE/AT/CH selector, seven main categories and explicit no-listings-yet empty state. All filters currently work locally in the preview; public data loading is deliberately disabled. No fake listings, payments or delivery workflows.
+- `app/lib/betterInsightClient.ts`: explicit BetterInsight-dev project URL and separate browser session, intentionally **not** inherited UT/BetInsight Supabase environment variables. The preview account cannot authenticate without its own public configuration.
+- `app/betterinsight/account/page.tsx`: separate INSERT / UPDATE for profile fields under restricted column permissions, rather than unsafe general upsert.
+- `docs/architecture/betterinsight-identity-handoff.md`: reviewed existing BetInsight email/dashboard access and existing Network one-time handoff. **Do not copy the Network handoff response, which returns a dashboard UUID, into BetterInsight**. Build a scoped one-time-code flow that creates an independent BetterInsight session, without disclosing a permanent credential.
+- No parent BetInsight production code changed. No BetterInsight deployment or new database permissions applied.
