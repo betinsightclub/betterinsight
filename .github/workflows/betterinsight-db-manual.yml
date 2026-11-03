@@ -36,7 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 12
     env:
-      BETTERINSIGHT_DATABASE_URL: \${{ secrets.BETTERINSIGHT_DATABASE_URL }}
+      BETTERINSIGHT_DATABASE_URL: ${{ secrets.BETTERINSIGHT_DATABASE_URL }}
     steps:
       - name: Checkout isolated BetterInsight source
         uses: actions/checkout@v4
@@ -78,7 +78,7 @@ jobs:
           PY
 
       - name: Test connection and RLS on six BetterInsight tables (read-only)
-        if: \${{ github.event_name == 'push' || inputs.operation == 'check' }}
+        if: ${{ github.event_name == 'push' || inputs.operation == 'check' }}
         shell: bash
         env:
           PGSSLMODE: require
@@ -99,9 +99,9 @@ jobs:
           echo "Read-only database connectivity check passed. No migrations applied."
 
       - name: Require explicit approval before applying any migrations
-        if: \${{ github.event_name == 'workflow_dispatch' && inputs.operation == 'apply' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.operation == 'apply' }}
         env:
-          APPROVAL: \${{ inputs.approval }}
+          APPROVAL: ${{ inputs.approval }}
         run: |
           if [ "$APPROVAL" != "APPLY-BETTERINSIGHT-DEV" ]; then
             echo "::error::Apply requires typing APPLY-BETTERINSIGHT-DEV. No changes made."
@@ -113,13 +113,13 @@ jobs:
           fi
 
       - name: Install pinned Supabase CLI for approved migration only
-        if: \${{ github.event_name == 'workflow_dispatch' && inputs.operation == 'apply' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.operation == 'apply' }}
         uses: supabase/setup-cli@v3
         with:
           version: 2.122.0
 
       - name: Apply only reviewed BetterInsight migrations (never original UT migrations)
-        if: \${{ github.event_name == 'workflow_dispatch' && inputs.operation == 'apply' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.operation == 'apply' }}
         working-directory: infra/betterinsight
         shell: bash
         run: |
