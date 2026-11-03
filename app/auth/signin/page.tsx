@@ -5,11 +5,9 @@ import { useAuth } from '../../context/AuthContext';
 import { useCrypto } from '../../context/CryptoContext';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../../lib/supabaseClient';
-import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import TermsModal from '../../../components/modals/TermsModal';
 import { ensureUserHasKeys } from '../../lib/database/KeyService';
-import { isAllowedUtAustinEmail, UT_AUSTIN_EMAIL_ERROR_MESSAGE } from '../../lib/auth/emailDomain';
 
 function SignInContent() {
   const [email, setEmail] = useState('');
@@ -52,12 +50,6 @@ function SignInContent() {
       setEmailError(null);
     }
     
-    // Validate domain only if user is signing up and has entered an email
-    if (isSignUp && newEmail && !isAllowedUtAustinEmail(newEmail)) {
-      setEmailError(UT_AUSTIN_EMAIL_ERROR_MESSAGE);
-    } else if (isSignUp && newEmail && isAllowedUtAustinEmail(newEmail)) {
-      setEmailError(null);
-    }
   };
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -107,13 +99,6 @@ function SignInContent() {
       const normalizedEmail = email.trim();
 
       if (isSignUp) {
-        // Validate email domain before attempting sign up
-        if (!isAllowedUtAustinEmail(normalizedEmail)) {
-          setEmailError(UT_AUSTIN_EMAIL_ERROR_MESSAGE);
-          setLoading(false);
-          return;
-        }
-
         // Validate password confirmation
         if (password !== confirmPassword) {
           setPasswordError('Passwords do not match');
@@ -124,19 +109,6 @@ function SignInContent() {
         // Validate terms acceptance
         if (!termsAccepted) {
           setError('Please accept the Terms and Conditions to continue');
-          setLoading(false);
-          return;
-        }
-
-        // Check if this email is permanently banned before allowing registration
-        const { data: bannedEntry } = await supabase
-          .from('banned_emails')
-          .select('email')
-          .eq('email', normalizedEmail.toLowerCase())
-          .maybeSingle();
-
-        if (bannedEntry) {
-          setError('This email address is not eligible to register on UT Marketplace.');
           setLoading(false);
           return;
         }
@@ -269,7 +241,7 @@ function SignInContent() {
             className="mb-8"
           >
             <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-2xl">
-              <Image src="/icons/utmplogo.png" alt="UT Marketplace" width={60} height={60} className="rounded-full" />
+              <span className="text-2xl font-bold text-slate-800">BI</span>
             </div>
           </motion.div>
           <motion.h1 
@@ -278,7 +250,7 @@ function SignInContent() {
             transition={{ duration: 0.5, delay: 0.4 }}
             className="text-4xl lg:text-6xl font-bold text-white tracking-tight mb-6"
           >
-            UT Marketplace
+            BetterInsight
           </motion.h1>
           <motion.p 
             initial={{ opacity: 0, y: 20 }}
@@ -286,7 +258,7 @@ function SignInContent() {
             transition={{ duration: 0.5, delay: 0.5 }}
             className="text-xl text-white/90 mb-8 max-w-md leading-relaxed"
           >
-            Your trusted marketplace for buying, selling, and trading within the UT Austin community. Connect with fellow Longhorns and discover amazing deals right on campus.
+            Post. Discover. Connect. Find listings and connect directly with people across local communities.
           </motion.p>
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
@@ -296,15 +268,15 @@ function SignInContent() {
           >
             <div className="flex items-center gap-3">
               <div className="w-3 h-3 bg-white rounded-full"></div>
-              <span className="text-lg">Exclusive to UT Austin students and faculty</span>
+              <span className="text-lg">Choose your country and browse local listings</span>
             </div>
             <div className="flex items-center gap-3">
               <div className="w-3 h-3 bg-white rounded-full"></div>
-              <span className="text-lg">Secure payments and verified users</span>
+              <span className="text-lg">Direct messages between buyers and sellers</span>
             </div>
             <div className="flex items-center gap-3">
               <div className="w-3 h-3 bg-white rounded-full"></div>
-              <span className="text-lg">Quick and easy campus transactions</span>
+              <span className="text-lg">Post items, services and permitted external links</span>
             </div>
             <div className="flex items-center gap-3">
               <div className="w-3 h-3 bg-white rounded-full"></div>
@@ -397,7 +369,7 @@ function SignInContent() {
             transition={{ duration: 0.3 }}
             className="text-center text-gray-500 text-sm mb-6"
           >
-            {isSignUp ? 'Join the UT community and start listing!' : 'Welcome back! Sign in to continue.'}
+            {isSignUp ? 'Join BetterInsight and start exploring!' : 'Welcome back! Sign in to continue.'}
           </motion.p>
           
           <motion.button
@@ -453,7 +425,7 @@ function SignInContent() {
                 className={`block w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-ut-orange focus:border-transparent text-sm transition-all duration-200 ${
                   emailError ? 'border-red-500 bg-red-50' : 'border-gray-300 hover:border-gray-400 focus:border-ut-orange'
                 }`}
-                placeholder="Enter your UT Austin email"
+                placeholder="Enter your email address"
                 value={email}
                 onChange={handleEmailChange}
                 disabled={loading}
@@ -638,7 +610,7 @@ function SignInContent() {
                       >
                         Terms and Conditions
                       </button>
-                      {' '}and understand that I must use my UT Austin email address.
+                      
                     </label>
                   </div>
                 </motion.div>
