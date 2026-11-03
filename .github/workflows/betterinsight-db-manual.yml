@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       operation:
-        description: "What should be done to BetterInsight-dev?"
+        description: "Read-only check, or explicitly approved apply?"
         type: choice
         required: true
         default: check
@@ -16,6 +16,11 @@ on:
         type: string
         required: false
         default: ""
+  # Once, after updating this workflow, check the NEW connection without
+  # requiring the user to copy code or trigger deployment.
+  push:
+    branches: [main]
+    paths: [".github/workflows/betterinsight-db-manual.yml"]
 
 permissions:
   contents: read
@@ -26,20 +31,20 @@ concurrency:
 
 jobs:
   database:
-    name: Check isolated BetterInsight database target
+    name: Verify BetterInsight-dev only
     if: github.repository == 'betinsightclub/betterinsight'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 12
     env:
-      BETTERINSIGHT_DATABASE_URL: ${{ secrets.BETTERINSIGHT_DATABASE_URL }}
+      BETTERINSIGHT_DATABASE_URL: \${{ secrets.BETTERINSIGHT_DATABASE_URL }}
     steps:
-      - name: Checkout only BetterInsight development sources
+      - name: Checkout isolated BetterInsight source
         uses: actions/checkout@v4
         with:
           ref: dev/betterinsight-cloudflare
           persist-credentials: false
 
-      - name: Verify secret targets BetterInsight-dev only (no connection yet)
+      - name: Check URL points only to BetterInsight-dev (never print secret)
         shell: bash
         run: |
           python3 - <<'PY'
@@ -47,68 +52,79 @@ jobs:
           import re
           from urllib.parse import urlsplit
 
-          secret = os.environ.get("BETTERINSIGHT_DATABASE_URL", "")
-          if not secret:
-              raise SystemExit("Missing repository secret BETTERINSIGHT_DATABASE_URL. No database action performed.")
+          raw = os.environ.get("BETTERINSIGHT_DATABASE_URL", "")
+          if not raw:
+              raise SystemExit("Secret BETTERINSIGHT_DATABASE_URL is missing. No database action performed.")
 
           try:
-              url = urlsplit(secret)
+              url = urlsplit(raw)
               valid = (
-                  url.scheme in ("postgresql", "postgres")
+                  url.scheme in ("postgres", "postgresql")
                   and url.username == "postgres.nefgspsbamcsmrjkpnis"
                   and bool(url.password)
-                  and bool(url.hostname)
-                  and re.fullmatch(r"aws-[0-9]+-[a-z0-9-]+\.pooler\.supabase\.com", url.hostname) is not None
+                  and url.password not in ("YOUR-PASSWORD", "[YOUR-PASSWORD]")
+                  and re.fullmatch(r"aws-[0-9]+-[a-z0-9-]+\.pooler\.supabase\.com", url.hostname or "") is not None
                   and url.port == 5432
                   and url.path == "/postgres"
               )
-          except ValueError:
+          except (ValueError, TypeError):
               valid = False
-
           if not valid:
               raise SystemExit(
-                  "Wrong or invalid database connection: use the SESSION POOLER URL "
-                  "(port 5432) for BetterInsight-dev, with the project-specific username. "
+                  "Connection does not match BetterInsight-dev's SESSION pooler on port 5432. "
                   "No database action performed."
               )
-          print("Verified: BetterInsight-dev project and IPv4 session pooler; other projects excluded.")
+          print("Verified project-scoped BetterInsight-dev pooler URL (secret kept hidden).")
           PY
 
-      - name: Require explicit confirmation before applying migrations
-        if: ${{ inputs.operation == 'apply' }}
+      - name: Test connection and RLS on six BetterInsight tables (read-only)
+        if: \${{ github.event_name == 'push' || inputs.operation == 'check' }}
         shell: bash
         env:
-          APPROVAL: ${{ inputs.approval }}
+          PGSSLMODE: require
+          PGCONNECT_TIMEOUT: "15"
+          PGOPTIONS: "-c default_transaction_read_only=on -c statement_timeout=15000"
+        run: |
+          if ! command -v psql >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq postgresql-client
+          fi
+
+          count="$(psql --dbname="$BETTERINSIGHT_DATABASE_URL" -X -A -t -q -v ON_ERROR_STOP=1 -c "SELECT COUNT(*) FROM pg_tables WHERE schemaname = 'public' AND rowsecurity = true AND tablename IN ('market_countries', 'market_categories', 'market_listings', 'market_conversations', 'market_messages', 'market_profiles');")"
+          if [ "$count" != "6" ]; then
+            echo "::error::Expected 6 RLS-protected BetterInsight tables, got $count. No changes made."
+            exit 1
+          fi
+          echo "Connected successfully. All 6 BetterInsight foundation tables have RLS enabled."
+          echo "Read-only database connectivity check passed. No migrations applied."
+
+      - name: Require explicit approval before applying any migrations
+        if: \${{ github.event_name == 'workflow_dispatch' && inputs.operation == 'apply' }}
+        env:
+          APPROVAL: \${{ inputs.approval }}
         run: |
           if [ "$APPROVAL" != "APPLY-BETTERINSIGHT-DEV" ]; then
-            echo "::error::Apply requires typing APPLY-BETTERINSIGHT-DEV. No changes were made."
+            echo "::error::Apply requires typing APPLY-BETTERINSIGHT-DEV. No changes made."
+            exit 1
+          fi
+          if ! compgen -G 'infra/betterinsight/supabase/migrations/*_*.sql' >/dev/null; then
+            echo "::error::No reviewed BetterInsight migrations available. Nothing to apply."
             exit 1
           fi
 
-      - name: Install pinned Supabase CLI
+      - name: Install pinned Supabase CLI for approved migration only
+        if: \${{ github.event_name == 'workflow_dispatch' && inputs.operation == 'apply' }}
         uses: supabase/setup-cli@v3
         with:
-          version: 3.0.0
+          version: 2.122.0
 
-      - name: Inspect pending BetterInsight-only migrations (read-only)
-        if: ${{ inputs.operation == 'check' }}
+      - name: Apply only reviewed BetterInsight migrations (never original UT migrations)
+        if: \${{ github.event_name == 'workflow_dispatch' && inputs.operation == 'apply' }}
         working-directory: infra/betterinsight
         shell: bash
         run: |
-          supabase --version
-          supabase db push --dry-run --remote="$BETTERINSIGHT_DATABASE_URL"
+          supabase db push --db-url "$BETTERINSIGHT_DATABASE_URL" --yes
 
-      - name: Apply previously reviewed BetterInsight-only migrations
-        if: ${{ inputs.operation == 'apply' }}
-        working-directory: infra/betterinsight
-        shell: bash
-        run: |
-          echo "Manual approval received. Applying ONLY infra/betterinsight/supabase/migrations."
-          supabase db push --remote="$BETTERINSIGHT_DATABASE_URL" --yes
-
-# Important:
-# - Never runs automatically on push, PR, or schedule.
-# - A database connection string is used, not a Supabase account-wide management token.
-# - This workflow file lives on main only so workflow_dispatch can be started in GitHub Actions.
-# - The code and migrations come from the isolated development branch; root /supabase/migrations is excluded.
-# - No website deployment and no changes to existing BetInsight/Blindenwerkstatt projects.
+# No Cloudflare deployment, no changes to other Supabase organizations.
+# Push events only perform a read-only check; applying requires manual selection
+# and exact confirmation string. No credentials are printed to logs.
