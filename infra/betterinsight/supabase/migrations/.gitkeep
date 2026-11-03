@@ -1,0 +1,2 @@
+# Intentionally empty: the five initial schema setup scripts in docs/database
+# were already executed manually and must NOT be replayed as migrations.
