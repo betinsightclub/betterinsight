@@ -16,8 +16,8 @@ const robotoFlex = Roboto_Flex({
 });
 
 export const metadata: Metadata = {
-  title: "UT Marketplace",
-  description: "Buy and sell items within the UT community",
+  title: "BetterInsight – Post. Discover. Connect.",
+  description: "The global community marketplace for classifieds, local connections and direct messaging.",
   icons: {
     icon: "/icons/ios-light.png",
   },
