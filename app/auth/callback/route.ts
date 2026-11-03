@@ -3,7 +3,6 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { UserService } from '../../lib/database/UserService';
-import { isAllowedUtAustinEmail, UT_AUSTIN_EMAIL_ERROR_MESSAGE } from '../../lib/auth/emailDomain';
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
@@ -52,14 +51,6 @@ export async function GET(request: NextRequest) {
   }
   
   if (user) {
-    // Validate email domain for new users
-    if (user.email && !isAllowedUtAustinEmail(user.email)) {
-      console.error('Invalid email domain for user:', user.email);
-      return NextResponse.redirect(
-        `${requestUrl.origin}/auth/signin?error=${encodeURIComponent(UT_AUSTIN_EMAIL_ERROR_MESSAGE)}`
-      );
-    }
-    
     // Check if the user's email is permanently banned
     if (user.email) {
       const { data: bannedEntry } = await supabase
@@ -71,7 +62,7 @@ export async function GET(request: NextRequest) {
       if (bannedEntry) {
         await supabase.auth.signOut();
         return NextResponse.redirect(
-          `${requestUrl.origin}/auth/signin?error=${encodeURIComponent('This account has been permanently removed from UT Marketplace.')}`
+          `${requestUrl.origin}/auth/signin?error=${encodeURIComponent('This account is not eligible to access BetterInsight.')}`
         );
       }
     }
