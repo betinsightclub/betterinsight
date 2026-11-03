@@ -1,0 +1,32 @@
+name: BetterInsight account TypeScript check (no deployment)
+
+on:
+  push:
+    branches:
+      - dev/betterinsight-cloudflare
+    paths:
+      - "app/betterinsight/**"
+      - "app/context/AuthContext.tsx"
+      - "app/auth/**"
+      - ".github/workflows/betterinsight-account-types.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  types:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Check full TypeScript project
+        run: npx tsc --noEmit --pretty false
+
+# This does not deploy, contact Supabase, or alter a database.
