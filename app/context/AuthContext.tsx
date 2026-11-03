@@ -3,7 +3,6 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { User, AuthError } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabaseClient';
 import { useRouter } from 'next/navigation';
-import { isAllowedUtAustinEmail, UT_AUSTIN_EMAIL_ERROR_MESSAGE } from '../lib/auth/emailDomain';
 
 interface AuthContextType {
   user: User | null;
@@ -114,16 +113,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signUp: AuthContextType['signUp'] = async (email: string, password: string) => {
     const normalizedEmail = email.trim();
 
-    if (!isAllowedUtAustinEmail(normalizedEmail)) {
-      return { 
-        error: { 
-          message: UT_AUSTIN_EMAIL_ERROR_MESSAGE,
-          name: 'AuthError',
-          status: 400
-        } as AuthError 
-      };
-    }
-    
+
     const { data, error } = await supabase.auth.signUp({
       email: normalizedEmail,
       password,
