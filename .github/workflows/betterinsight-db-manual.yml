@@ -86,6 +86,18 @@ jobs:
               checks["database_postgres"] = url.path == "/postgres"
           except (ValueError, TypeError):
               pass
+          # Safe shape diagnosis; do not print any portion of the secret.
+          shape = {
+              "full_postgresql_uri_prefix": raw.lower().startswith(("postgresql://", "postgres://")),
+              "uri_embedded_in_other_text": (
+                  not raw.lower().startswith(("postgresql://", "postgres://"))
+                  and ("postgresql://" in raw.lower() or "postgres://" in raw.lower())
+              ),
+              "wrapped_in_quotes": raw.startswith(('"', "'")) and raw.endswith(('"', "'")),
+              "has_uri_separator": "://" in raw,
+          }
+          for name, passed in shape.items():
+              print(f"Shape check {name}: {'YES' if passed else 'NO'}")
           for name, passed in checks.items():
               print(f"Format check {name}: {'OK' if passed else 'INVALID'}")
           if not all(checks.values()):
