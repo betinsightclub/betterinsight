@@ -1,0 +1,114 @@
+name: BetterInsight DB - manual check or apply
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: "What should be done to BetterInsight-dev?"
+        type: choice
+        required: true
+        default: check
+        options:
+          - check
+          - apply
+      approval:
+        description: "Only for apply: type APPLY-BETTERINSIGHT-DEV"
+        type: string
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: betterinsight-dev-database
+  cancel-in-progress: false
+
+jobs:
+  database:
+    name: Check isolated BetterInsight database target
+    if: github.repository == 'betinsightclub/betterinsight'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      BETTERINSIGHT_DATABASE_URL: ${{ secrets.BETTERINSIGHT_DATABASE_URL }}
+    steps:
+      - name: Checkout only BetterInsight development sources
+        uses: actions/checkout@v4
+        with:
+          ref: dev/betterinsight-cloudflare
+          persist-credentials: false
+
+      - name: Verify secret targets BetterInsight-dev only (no connection yet)
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          from urllib.parse import urlsplit
+
+          secret = os.environ.get("BETTERINSIGHT_DATABASE_URL", "")
+          if not secret:
+              raise SystemExit("Missing repository secret BETTERINSIGHT_DATABASE_URL. No database action performed.")
+
+          try:
+              url = urlsplit(secret)
+              valid = (
+                  url.scheme in ("postgresql", "postgres")
+                  and url.username == "postgres.nefgspsbamcsmrjkpnis"
+                  and bool(url.password)
+                  and bool(url.hostname)
+                  and re.fullmatch(r"aws-[0-9]+-[a-z0-9-]+\\.pooler\\.supabase\\.com", url.hostname) is not None
+                  and url.port == 5432
+                  and url.path == "/postgres"
+              )
+          except ValueError:
+              valid = False
+
+          if not valid:
+              raise SystemExit(
+                  "Wrong or invalid database connection: use the SESSION POOLER URL "
+                  "(port 5432) for BetterInsight-dev, with the project-specific username. "
+                  "No database action performed."
+              )
+          print("Verified: BetterInsight-dev project and IPv4 session pooler; other projects excluded.")
+          PY
+
+      - name: Require explicit confirmation before applying migrations
+        if: ${{ inputs.operation == 'apply' }}
+        shell: bash
+        env:
+          APPROVAL: ${{ inputs.approval }}
+        run: |
+          if [ "$APPROVAL" != "APPLY-BETTERINSIGHT-DEV" ]; then
+            echo "::error::Apply requires typing APPLY-BETTERINSIGHT-DEV. No changes were made."
+            exit 1
+          fi
+
+      - name: Install pinned Supabase CLI
+        uses: supabase/setup-cli@v3
+        with:
+          version: 3.0.0
+
+      - name: Inspect pending BetterInsight-only migrations (read-only)
+        if: ${{ inputs.operation == 'check' }}
+        working-directory: infra/betterinsight
+        shell: bash
+        run: |
+          supabase --version
+          supabase db push --dry-run --remote="$BETTERINSIGHT_DATABASE_URL"
+
+      - name: Apply previously reviewed BetterInsight-only migrations
+        if: ${{ inputs.operation == 'apply' }}
+        working-directory: infra/betterinsight
+        shell: bash
+        run: |
+          echo "Manual approval received. Applying ONLY infra/betterinsight/supabase/migrations."
+          supabase db push --remote="$BETTERINSIGHT_DATABASE_URL" --yes
+
+# Important:
+# - Never runs automatically on push, PR, or schedule.
+# - A database connection string is used, not a Supabase account-wide management token.
+# - This workflow file lives on main only so workflow_dispatch can be started in GitHub Actions.
+# - The code and migrations come from the isolated development branch; root /supabase/migrations is excluded.
+# - No website deployment and no changes to existing BetInsight/Blindenwerkstatt projects.
