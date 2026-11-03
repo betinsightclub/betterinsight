@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
-import { supabase } from "../../lib/supabaseClient";
+import { betterInsightClient as supabase } from "../../lib/betterInsightClient";
 
 // Development-only BetterInsight account entry point.
 // Do NOT link this to the live marketplace or deploy before:
@@ -27,9 +27,14 @@ export default function BetterInsightAccount() {
   const [country, setCountry] = useState("DE");
   const [city, setCity] = useState("");
   const [status, setStatus] = useState<Profile["account_status"] | null>(null);
+  const [profileExists, setProfileExists] = useState(false);
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
+    if (!supabase) {
+      setChecking(false);
+      return;
+    }
     let mounted = true;
     void supabase.auth.getUser().then(({ data, error }) => {
       if (!mounted) return;
@@ -47,8 +52,9 @@ export default function BetterInsightAccount() {
   }, []);
 
   useEffect(() => {
-    if (!user) {
+    if (!user || !supabase) {
       setStatus(null);
+      setProfileExists(false);
       return;
     }
     let cancelled = false;
@@ -63,6 +69,7 @@ export default function BetterInsightAccount() {
           setNotice("Die Profilfreigabe in der Entwicklungsdatenbank steht noch aus.");
           return;
         }
+        setProfileExists(Boolean(data));
         if (data) {
           const profile = data as Profile;
           setDisplayName(profile.display_name);
@@ -76,6 +83,7 @@ export default function BetterInsightAccount() {
 
   async function submitCredentials(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!supabase) return;
     setWorking(true);
     setNotice("");
     try {
@@ -112,20 +120,24 @@ export default function BetterInsightAccount() {
 
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!user) return;
+    if (!user || !supabase) return;
     setWorking(true);
     setNotice("");
     try {
-      const { error } = await supabase
-        .from("market_profiles")
-        .upsert({
-          id: user.id,
-          display_name: displayName.trim(),
-          country_code: country,
-          city: city.trim() || null,
-        }, { onConflict: "id" });
+      // Column grants intentionally forbid changing account_status or id
+      // through UPDATE. Avoid UPSERT: ON CONFLICT can require UPDATE(id).
+      const fields = {
+        display_name: displayName.trim(),
+        country_code: country,
+        city: city.trim() || null,
+      };
+      const query = profileExists
+        ? supabase.from("market_profiles").update(fields).eq("id", user.id)
+        : supabase.from("market_profiles").insert({ id: user.id, ...fields });
+      const { error } = await query;
       if (error) throw error;
       setNotice("Dein Profil wurde gespeichert.");
+      setProfileExists(true);
       setStatus((old) => old ?? "pending");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Profil konnte nicht gespeichert werden.");
@@ -135,6 +147,7 @@ export default function BetterInsightAccount() {
   }
 
   async function signOut() {
+    if (!supabase) return;
     setWorking(true);
     const { error } = await supabase.auth.signOut();
     if (error) setNotice(error.message);
@@ -163,7 +176,11 @@ export default function BetterInsightAccount() {
 
       {notice && <p aria-live="polite" className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">{notice}</p>}
 
-      {checking ? (
+      {!supabase ? (
+        <p className="mt-8 rounded-lg border border-slate-200 bg-slate-50 p-4">
+          Die BetterInsight-Entwicklungsanmeldung ist noch nicht freigeschaltet.
+        </p>
+      ) : checking ? (
         <p className="mt-8">Anmeldung wird geprüft …</p>
       ) : user ? (
         <section className="mt-8 rounded-xl border border-slate-200 p-6">
