@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "next-env.d.ts",
+    "app/betterinsight/**/*.ts",
+    "app/betterinsight/**/*.tsx",
+    "app/lib/supabaseClient.ts"
+  ],
+  "exclude": ["node_modules", "cloudflare.config.ts", "vite.config.ts"]
+}
