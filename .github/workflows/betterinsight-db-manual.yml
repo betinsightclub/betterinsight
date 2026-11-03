@@ -56,6 +56,18 @@ jobs:
           if not raw:
               raise SystemExit("Secret BETTERINSIGHT_DATABASE_URL is missing. No database action performed.")
 
+          # Diagnose the common Supabase password placeholder and square-bracket
+          # URL parsing issue without ever printing the secret or any character of it.
+          suspected_placeholder = "[YOUR-PASSWORD]" in raw or "%5BYOUR-PASSWORD%5D" in raw.upper()
+          print("Credential check unreplaced_supabase_placeholder: "
+                + ("YES" if suspected_placeholder else "NO"))
+          parse_has_bracket_issue = False
+          try:
+              urlsplit(raw)
+          except ValueError:
+              parse_has_bracket_issue = ("[" in raw or "]" in raw)
+          print("Credential check unencoded_square_brackets: "
+                + ("YES" if parse_has_bracket_issue else "NO"))
           # Print only validation FLAGS, never any secret or URL components.
           # This diagnoses malformed connection strings without revealing credentials.
           checks = {
