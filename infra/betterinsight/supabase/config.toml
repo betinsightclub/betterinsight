@@ -1,0 +1,2 @@
+# Isolated BetterInsight CLI workspace. Do NOT use the root supabase/migrations!
+project_id = "betterinsight-dev"
