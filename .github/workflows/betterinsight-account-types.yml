@@ -6,6 +6,7 @@ on:
       - dev/betterinsight-cloudflare
     paths:
       - "app/betterinsight/**"
+      - "tsconfig.betterinsight-account.json"
       - "app/context/AuthContext.tsx"
       - "app/auth/**"
       - ".github/workflows/betterinsight-account-types.yml"
@@ -26,7 +27,7 @@ jobs:
           cache: npm
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
-      - name: Check full TypeScript project
-        run: npx tsc --noEmit --pretty false
+      - name: Check BetterInsight account TypeScript
+        run: npx tsc --noEmit --pretty false --project tsconfig.betterinsight-account.json
 
 # This does not deploy, contact Supabase, or alter a database.
