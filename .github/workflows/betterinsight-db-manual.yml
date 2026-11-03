@@ -58,7 +58,7 @@ jobs:
                   and url.username == "postgres.nefgspsbamcsmrjkpnis"
                   and bool(url.password)
                   and bool(url.hostname)
-                  and re.fullmatch(r"aws-[0-9]+-[a-z0-9-]+\\.pooler\\.supabase\\.com", url.hostname) is not None
+                  and re.fullmatch(r"aws-[0-9]+-[a-z0-9-]+\.pooler\.supabase\.com", url.hostname) is not None
                   and url.port == 5432
                   and url.path == "/postgres"
               )
