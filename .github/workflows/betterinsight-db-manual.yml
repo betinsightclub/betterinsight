@@ -56,23 +56,42 @@ jobs:
           if not raw:
               raise SystemExit("Secret BETTERINSIGHT_DATABASE_URL is missing. No database action performed.")
 
+          # Print only validation FLAGS, never any secret or URL components.
+          # This diagnoses malformed connection strings without revealing credentials.
+          checks = {
+              "scheme": False,
+              "project_user": False,
+              "password_present": False,
+              "password_not_placeholder": False,
+              "session_pooler_host": False,
+              "port_5432": False,
+              "database_postgres": False,
+              "no_extra_whitespace": raw == raw.strip(),
+          }
           try:
               url = urlsplit(raw)
-              valid = (
-                  url.scheme in ("postgres", "postgresql")
-                  and url.username == "postgres.nefgspsbamcsmrjkpnis"
-                  and bool(url.password)
-                  and url.password not in ("YOUR-PASSWORD", "[YOUR-PASSWORD]")
-                  and re.fullmatch(r"aws-[0-9]+-[a-z0-9-]+\.pooler\.supabase\.com", url.hostname or "") is not None
-                  and url.port == 5432
-                  and url.path == "/postgres"
+              checks["scheme"] = url.scheme in ("postgres", "postgresql")
+              checks["project_user"] = url.username == "postgres.nefgspsbamcsmrjkpnis"
+              checks["password_present"] = bool(url.password)
+              checks["password_not_placeholder"] = bool(url.password) and (
+                  url.password not in ("YOUR-PASSWORD", "[YOUR-PASSWORD]", "%5BYOUR-PASSWORD%5D")
               )
+              checks["session_pooler_host"] = (
+                  re.fullmatch(
+                      r"aws-[0-9]+-[a-z0-9-]+\.pooler\.supabase\.com",
+                      url.hostname or "",
+                  ) is not None
+              )
+              checks["port_5432"] = url.port == 5432
+              checks["database_postgres"] = url.path == "/postgres"
           except (ValueError, TypeError):
-              valid = False
-          if not valid:
+              pass
+          for name, passed in checks.items():
+              print(f"Format check {name}: {'OK' if passed else 'INVALID'}")
+          if not all(checks.values()):
               raise SystemExit(
-                  "Connection does not match BetterInsight-dev's SESSION pooler on port 5432. "
-                  "No database action performed."
+                  "Saved database connection format failed validation. "
+                  "No connection attempted; no database action performed."
               )
           print("Verified project-scoped BetterInsight-dev pooler URL (secret kept hidden).")
           PY
