@@ -1,0 +1,24 @@
+name: BetterInsight SSO safeguards (NO deployment)
+on:
+  push:
+    branches: [dev/betterinsight-cloudflare]
+    paths:
+      - "app/lib/betterInsightSsoCore.ts"
+      - "app/api/betterinsight/auth/**"
+      - "app/betterinsight/**"
+      - "tests/betterinsight-sso.test.mjs"
+      - ".github/workflows/betterinsight-sso-check.yml"
+  workflow_dispatch:
+
+jobs:
+  sso-safety:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Check SSO security contract (no secrets and no deployment)
+        run: node --experimental-strip-types --test tests/betterinsight-sso.test.mjs
