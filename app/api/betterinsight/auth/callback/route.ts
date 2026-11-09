@@ -9,7 +9,9 @@ export async function GET(req: NextRequest) {
   const origin = safeAppOrigin(req.url, process.env.BETTERINSIGHT_PUBLIC_ORIGIN);
   const fail = (reason: string) => {
     const r = NextResponse.redirect(origin ? origin + "/betterinsight?connect=" + reason : "https://app.betinsight.club/konto/", { status: 302 });
-    r.cookies.delete(SSO_STATE_COOKIE);
+    r.cookies.set(SSO_STATE_COOKIE, "", {
+      path: "/", secure: true, httpOnly: true, sameSite: "lax", maxAge: 0
+    });
     r.headers.set("Cache-Control", "no-store");
     r.headers.set("Referrer-Policy", "no-referrer");
     return r;
@@ -34,7 +36,9 @@ export async function GET(req: NextRequest) {
     if (!subject) return fail("rejected");
     const token = await signLocalSession(subject, sessionSecret);
     const out = NextResponse.redirect(origin + "/betterinsight?connect=ok", { status: 302 });
-    out.cookies.delete(SSO_STATE_COOKIE);
+    out.cookies.set(SSO_STATE_COOKIE, "", {
+      path: "/", secure: true, httpOnly: true, sameSite: "lax", maxAge: 0
+    });
     out.cookies.set(SSO_COOKIE, token, {
       path: "/", httpOnly: true, secure: true, sameSite: "lax", maxAge: SSO_SESSION_SECONDS
     });
