@@ -8,7 +8,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false }, { status: 403 });
   }
   const result = NextResponse.json({ success: true }, { headers: { "Cache-Control": "no-store" } });
-  result.cookies.delete(SSO_COOKIE);
-  result.cookies.delete(SSO_STATE_COOKIE);
+  for (const name of [SSO_COOKIE, SSO_STATE_COOKIE]) {
+    result.cookies.set(name, "", {
+      path: "/", secure: true, httpOnly: true, sameSite: "lax", maxAge: 0
+    });
+  }
   return result;
 }
