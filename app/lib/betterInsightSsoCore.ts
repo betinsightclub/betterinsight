@@ -58,7 +58,7 @@ export function safeAppOrigin(requestUrl: string, configuredOrigin: string | und
 export function isTrustedAuthorizeUrl(value: string | undefined): boolean {
   try {
     const url = new URL(value || "");
-    return url.protocol === "https:" && url.hostname === "app.betinsight.club"
+    return url.protocol === "https:" && url.hostname === "app.betinsight.club" && url.port === ""
       && !url.username && !url.password && !url.search && !url.hash;
   } catch { return false; }
 }
@@ -66,7 +66,7 @@ export function isTrustedExchangeUrl(value: string | undefined): boolean {
   try {
     const url = new URL(value || "");
     return url.protocol === "https:"
-      && url.hostname === "lszlaglwlixejzytrurg.supabase.co"
+      && url.hostname === "lszlaglwlixejzytrurg.supabase.co" && url.port === ""
       && url.pathname === "/functions/v1/betterinsight-sso-exchange"
       && !url.username && !url.password && !url.search && !url.hash;
   } catch { return false; }
