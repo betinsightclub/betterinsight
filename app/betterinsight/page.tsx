@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import BetterInsightAccountBar from "./components/BetterInsightAccountBar";
 
 // BetterInsight marketplace staging only: 8 languages inherited from BetInsight's
 // assets/i18n/locales/manifest.json plus one international aggregate view.
@@ -64,6 +65,7 @@ export default function BetterInsightMarketplacePreview() {
 
   return (
     <main className="min-h-screen bg-[#f5f9fc] text-[#0a3152]">
+      <BetterInsightAccountBar />
       <header className="border-b border-[#d3e2ed] bg-white">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-5 py-5">
           <Link href="/betterinsight" className="text-2xl font-black tracking-tight text-[#0a3152]">
