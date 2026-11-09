@@ -6,7 +6,7 @@ import {
   signLocalSession, verifyLocalSession
 } from "../app/lib/betterInsightSsoCore.ts";
 
-const user = "b6b62976-3fc1-4567-8c4a-74c795f3c501";
+const user = "TESTUSER1";
 const goodSecret = "test-session-secret-only-please-never-deploy-this-key-01";
 
 test("state is unpredictable and exact-match only", () => {
