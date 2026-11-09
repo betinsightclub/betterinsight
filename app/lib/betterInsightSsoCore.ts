@@ -32,7 +32,7 @@ export function isValidState(value: unknown): value is string {
   return typeof value === "string" && STATE.test(value);
 }
 export function isValidSubject(value: unknown): value is string {
-  return typeof value === "string" && UUID.test(value);
+  return typeof value === "string" && (UUID.test(value) || /^[A-Za-z0-9]{9}$/.test(value));
 }
 export function newState(): string {
   return encode(crypto.getRandomValues(new Uint8Array(32)));
@@ -105,7 +105,7 @@ export async function verifyLocalSession(token: unknown, secret: string, now = D
     if (data.iss !== "betterinsight-sso" || data.aud !== SSO_AUDIENCE
       || !isValidSubject(data.sub) || !Number.isInteger(data.exp)
       || data.exp <= Math.floor(now / 1000) || data.exp > Math.floor(now / 1000) + SSO_SESSION_SECONDS
-      || !isValidSubject(data.jti)) return null;
+      || typeof data.jti !== "string" || !UUID.test(data.jti)) return null;
     return data.sub;
   } catch { return null; }
 }
