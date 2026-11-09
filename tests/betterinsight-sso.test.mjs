@@ -41,6 +41,7 @@ test("issuer endpoints are allowlisted and cannot be attacker-controlled", () =>
   assert.ok(isTrustedAuthorizeUrl("https://app.betinsight.club/konto/"));
   assert.equal(isTrustedAuthorizeUrl("https://app.betinsight.club.evil.com/"), false);
   assert.equal(isTrustedAuthorizeUrl("http://app.betinsight.club/konto/"), false);
+  assert.equal(isTrustedAuthorizeUrl("https://app.betinsight.club:4443/konto/"), false);
   assert.ok(isTrustedExchangeUrl("https://lszlaglwlixejzytrurg.supabase.co/functions/v1/betterinsight-sso-exchange"));
   assert.equal(isTrustedExchangeUrl("https://other.supabase.co/functions/v1/betterinsight-sso-exchange"), false);
 });
