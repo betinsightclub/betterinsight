@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { safeAppOrigin, SSO_COOKIE, verifyLocalSession } from "../../../../lib/betterInsightSsoCore";
+import { safeAppOrigin, isTrustedAuthorizeUrl, isTrustedExchangeUrl, SSO_COOKIE, verifyLocalSession } from "../../../../lib/betterInsightSsoCore";
 
 export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const origin = safeAppOrigin(req.url, process.env.BETTERINSIGHT_PUBLIC_ORIGIN);
   const secret = process.env.BETTERINSIGHT_SSO_COOKIE_SECRET || "";
-  const enabled = process.env.BETTERINSIGHT_SSO_ENABLED === "true" && !!origin;
+  const enabled = process.env.BETTERINSIGHT_SSO_ENABLED === "true" && !!origin
+    && isTrustedAuthorizeUrl(process.env.BETTERINSIGHT_SSO_AUTHORIZE_URL)
+    && isTrustedExchangeUrl(process.env.BETTERINSIGHT_SSO_EXCHANGE_URL)
+    && (process.env.BETTERINSIGHT_SSO_CLIENT_SECRET || "").length >= 32
+    && secret.length >= 32;
   const subject = enabled && secret.length >= 32
     ? await verifyLocalSession(req.cookies.get(SSO_COOKIE)?.value, secret) : null;
   // No balance or profile data until the signed source read endpoint is ready.
